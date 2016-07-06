@@ -81,6 +81,8 @@ function onIntent(intentRequest, session, callback) {
 
     if ("Biography" === intentName) {
         getBiography(intent, session, callback);
+    } else if ("Story" === intentName) {
+        getStory(intent, session, callback);
     } else if ("AMAZON.StartOverIntent" === intentName) {
         getWelcomeResponse(callback);
     } else if ("AMAZON.HelpIntent" === intentName) {
@@ -227,6 +229,64 @@ function getBiography(intent, session, callback) {
                 }
             }
         });
+}
+
+// This retrieves a random biographic information about a colonial history figure
+
+function getStory(intent, session, callback) {
+    var cardTitle = "Colonial History - Story";
+    var sessionAttributes = {};
+    var shouldEndSession = false;
+    
+    var speechOutput = "";
+    var cardOutput = "";
+
+    // first get the index of all of the biographies
+    
+    var s3 = new aws.S3();
+
+    var getParams = {Bucket : dataBucket,
+                     Key : 'bios/bioIndex.json'};
+
+    s3.getObject(getParams, function(err, data) {
+        if(err)
+            console.log('Error getting bio index data : ' + err);
+        else {
+            var returnData = eval('(' + data.Body + ')');
+            var bioArray = returnData.data;
+
+            // now pick a random number from within the array to get the pointer
+            var i = Math.floor((Math.random() * bioArray.length) + 1);
+            console.log("matched - use object : " + bioArray[i].person.path);
+
+            var s3 = new aws.S3();
+                    
+            var getBioParams = {Bucket : dataBucket,
+                                Key : 'bios/' + bioArray[i].person.path}
+
+            s3.getObject(getBioParams, function(err, data) {
+                if(err)
+                    console.log('Error getting bio index data : ' + err);
+                else {
+                    var bioData = eval('(' + data.Body + ')');
+                                
+                    speechOutput = "Here is a brief biography of " + bioData.firstName + " " + bioData.lastName + ". ";
+                    speechOutput = speechOutput + bioData.bio;
+                    speechOutput = speechOutput + " For another biography, please say xxx";
+
+                    cardOutput = cardOutput + bioData.firstName + " " + bioData.lastName + '\n' +
+                        "Date of Birth: " + bioData.dateOfBirth + '\n' +
+                        "Date of Death: " + bioData.dateOfDeath + '\n';
+    
+                    var repromptText = "reprompt text";
+
+                    callback(sessionAttributes,
+                         buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+                }
+                        
+            });
+        }
+    });
 }
 
 // --------------- Helpers that build all of the responses -----------------------
