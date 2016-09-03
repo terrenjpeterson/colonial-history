@@ -9,6 +9,24 @@ const https = require('https');
 // location of the bucket used to manage data
 var dataBucket = 'colonial-history';
 
+// Original Thirteen Colonies
+
+var originalColonies = [
+    {"order":1,"name":"Virginia","yearFounded":1607},
+    {"order":2,"name":"New York","yearFounded":1626},
+    {"order":3,"name":"Massachusetts","yearFounded":1630},
+    {"order":4,"name":"Maryland","yearFounded":1633},
+    {"order":5,"name":"Rhode Island","yearFounded":1636},
+    {"order":6,"name":"Connecticut","yearFounded":1636},
+    {"order":7,"name":"New Hampshire","yearFounded":1638},
+    {"order":8,"name":"Delaware","yearFounded":1638},
+    {"order":9,"name":"North Carolina","yearFounded":1653},
+    {"order":10,"name":"South Carolina","yearFounded":1663},
+    {"order":11,"name":"New Jersey","yearFounded":1664},
+    {"order":12,"name":"Pennsylvania","yearFounded":1682},
+    {"order":13,"name":"Georgia","yearFounded":1732}
+];
+
 // Route the incoming request based on type (LaunchRequest, IntentRequest,
 // etc.) The JSON body of the request is provided in the event parameter.
 exports.handler = function (event, context) {
@@ -83,6 +101,16 @@ function onIntent(intentRequest, session, callback) {
         getBiography(intent, session, callback);
     } else if ("Story" === intentName) {
         getStory(intent, session, callback);
+    } else if ("BioList" === intentName) {
+        getBioList(intent, session, callback);
+    } else if ("ReadDeclOfInd" === intentName) {
+        readDeclOfIndep(intent, session, callback);
+    } else if ("SignDeclOfInd" === intentName) {
+        listDeclOfIndepSigners(intent, session, callback);
+    } else if ("ReadBillOfRights" === intentName) {
+        readBillOfRights(intent, session, callback);
+    } else if ("ListOriginalColonies" === intentName) {
+        listOrigColonies(intent, session, callback);
     } else if ("AMAZON.StartOverIntent" === intentName) {
         getWelcomeResponse(callback);
     } else if ("AMAZON.HelpIntent" === intentName) {
@@ -119,7 +147,7 @@ function getWelcomeResponse(callback) {
     var cardOutput = "Welcome to Colonial History";
 
     var repromptText = "Please tell me how I can help you by saying phrases like, " +
-        "list founding fathers from Virginia.";
+        "Read the Declaration of Independence.";
 
     console.log('speech output : ' + speechOutput);
 
@@ -161,6 +189,227 @@ function handleSessionEndRequest(callback) {
     callback({}, buildSpeechletResponse(cardTitle, speechOutput, speechOutput, null, shouldEndSession));
 }
 
+// This retrieves the bill of rights data and renders it for a response
+
+function readBillOfRights(intent, session, callback) {
+    var cardTitle = "Colonial History - Bill of Rights";
+    var sessionAttributes = {};
+    var shouldEndSession = false;
+
+    console.log("Read the Bill of Rights");
+
+    var speechOutput = "";
+    var cardOutput = "";
+
+    // first get the list of available biographies from the S3 bucket
+
+    var s3 = new aws.S3();
+
+    var getParams = {Bucket : dataBucket,
+                     Key : 'famous-documents/billOfRights.json'};
+
+        s3.getObject(getParams, function(err, data) {
+            if(err)
+                console.log('Error getting bill of rights data : ' + err);
+            else {
+                console.log("Retrieved data object");
+
+                var returnData = eval('(' + data.Body + ')');
+                var billOfRightsArray = returnData.amendments;
+
+                console.log(JSON.stringify(billOfRightsArray));
+
+                speechOutput = "The Bill of Rights are a group of ten amendments to the " +
+                    "United States Constitution. Here they are in detail. ";
+
+                for (i = 0; i < billOfRightsArray.length; i++) {
+                    speechOutput = speechOutput + " " + billOfRightsArray[i].order +
+                        " Amendment. " + billOfRightsArray[i].detail;
+                    cardOutput = cardOutput + billOfRightsArray[i].order +
+                        " Amendment\n" + billOfRightsArray[i].detail + "\n";
+                }
+                    
+                var repromptText = "reprompt text";
+
+                callback(sessionAttributes,
+                     buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+            }
+        });
+}
+
+// This lists all of the original colonies as well as the date that they were founded by
+
+function listOrigColonies(intent, session, callback) {
+    var cardTitle = "Colonial History - The Original Thirteen";
+    var sessionAttributes = {};
+    var shouldEndSession = false;
+
+    console.log("List the Original Colonies");
+
+    var speechOutput = "The original thirteen colonies in order are as follows. ";
+    var cardOutput = "Original Colonies\n";
+
+    for (i = 0; i < originalColonies.length; i++) {
+        speechOutput = speechOutput + originalColonies[i].name +
+            " founded in " + originalColonies[i].yearFounded + ", ";
+        cardOutput = cardOutput + originalColonies[i].order +
+            " - " + originalColonies[i].name + "\n";
+    }
+    
+    repromptText = "If you would like to hear more information, please say something.";
+    
+    callback(sessionAttributes,
+         buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+}
+
+// This lists who signed the declaration of independence from a given state
+
+function listDeclOfIndepSigners(intent, session, callback) {
+    var cardTitle = "Colonial History - Signers of the US Declaration of Independence";
+    var sessionAttributes = {};
+    var shouldEndSession = false;
+
+    console.log("List the Signers of the Declaration");
+
+    requestState = intent.slots.State.value;
+
+    var speechOutput = "";
+    var cardOutput = "";
+    var validState = false;
+
+    for (i = 0; i < originalColonies.length; i++) {
+        if (requestState == originalColonies[i].name) {
+            speechOutput = "The signers from the state of " + requestState;
+            cardOutput = "US Declaration of Indepdence Signers from " + requestState;
+            validState = true;
+        }
+    }
+    
+    if (validState == false) {
+        speechOutput = "I'm sorry, that's not one of the original thirteen colonies";
+        cardOutput = "Invalid State - please try again";
+    }
+    
+    repromptText = "If you would like to hear more information, please say something.";
+    
+    callback(sessionAttributes,
+         buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+}
+
+// This retrieves the bill of rights data and renders it for a response
+
+function readDeclOfIndep(intent, session, callback) {
+    var cardTitle = "Colonial History - Declaration of Independence";
+    var sessionAttributes = {};
+    var shouldEndSession = false;
+
+    console.log("Read the Declaration of Independence");
+
+    var speechOutput = "";
+    var cardOutput = "";
+
+    // first get the data object for the declaration
+
+    var s3 = new aws.S3();
+
+    var getParams = {Bucket : dataBucket,
+                     Key : 'famous-documents/declOfIndep.json'};
+
+        s3.getObject(getParams, function(err, data) {
+            if(err)
+                console.log('Error getting declaration of independence : ' + err);
+            else {
+                console.log("Retrieved data object");
+
+                var returnData = eval('(' + data.Body + ')');
+                
+                console.log("Processing Data");
+                
+                var declOfIndep = returnData;
+
+                console.log(JSON.stringify(declOfIndep));
+
+                speechOutput = "The United States Declaration of Independence from " +
+                    "Great Britain has several sections. This covers the introduction, " +
+                    "preamble, denunciation, and conclusion. "
+                cardOutput = "United States Declaration of Independence\n";
+
+                speechOutput = speechOutput + declOfIndep.introduction + " ";
+                cardOutput = cardOutput + declOfIndep.introduction + "\n";
+
+                speechOutput = speechOutput + declOfIndep.preamble + " ";
+                cardOutput = cardOutput + declOfIndep.preamble + "\n";
+
+                speechOutput = speechOutput + declOfIndep.denunciation + " ";
+                cardOutput = cardOutput + declOfIndep.denunciation + "\n";
+                
+                speechOutput = speechOutput + declOfIndep.conclusion;
+                cardOutput = cardOutput + declOfIndep.conclusion + "\n";                
+
+                var repromptText = "If you would like to know who signed the declaration " +
+                    "please say List signers of the Declaration of Independence.";
+
+                callback(sessionAttributes,
+                     buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+            }
+        });
+}
+
+// This retrieves all of the available biographies to choose from
+
+function getBioList(intent, session, callback) {
+    var cardTitle = "Colonial History - Biographies";
+    var sessionAttributes = {};
+    var shouldEndSession = false;
+
+    console.log("Get List of Biographies");
+
+    var speechOutput = "";
+    var cardOutput = "";
+
+    // first get the list of available biographies from the S3 bucket
+
+    var s3 = new aws.S3();
+
+    var getParams = {Bucket : dataBucket,
+                     Key : 'bios/bioIndex.json'};
+
+        s3.getObject(getParams, function(err, data) {
+            if(err)
+                console.log('Error getting bio index data : ' + err);
+            else {
+                console.log("Retrieved data object");
+
+                var returnData = eval('(' + data.Body + ')');
+                var bioArray = returnData.data;
+
+                console.log(JSON.stringify(bioArray));
+
+                speechOutput = "Here are the biographies to choose from - ";
+
+                var previousPath = "";
+                
+                for (i = 0; i < bioArray.length; i++) {
+                    console.log(bioArray[i].person.name);
+                    
+                    // make sure and skip duplicates
+                    if (bioArray[i].person.path !== previousPath) { 
+                        console.log(bioArray[i].person.path + previousPath);
+                        speechOutput = speechOutput + bioArray[i].person.name + ", ";
+                        cardOutput = cardOutput + bioArray[i].person.name+ '\n';
+                    }
+                    
+                    previousPath = bioArray[i].person.path;
+                }
+                    
+                var repromptText = "reprompt text";
+
+                callback(sessionAttributes,
+                     buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+            }
+        });
+}
+
 // This retrieves biographic information about a colonial history figure
 
 function getBiography(intent, session, callback) {
@@ -169,7 +418,6 @@ function getBiography(intent, session, callback) {
     var shouldEndSession = false;
 
     console.log("Get Biography of " + intent.slots.Name.value);
-    //console.log("Get Beer Categories Invoked for :" + intent.slots.Category.value);
 
     var speechOutput = "";
     var cardOutput = "";
