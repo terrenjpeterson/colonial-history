@@ -229,7 +229,11 @@ function readBillOfRights(intent, session, callback) {
                         " Amendment\n" + billOfRightsArray[i].detail + "\n";
                 }
                     
-                var repromptText = "reprompt text";
+                speechOutput = speechOutput + "If you would like to hear more about historical documents, " +
+                    "please say Read the Declaration of Independence, and I will do so. ";
+                    
+                var repromptText = "I have other historical documents that I can read. For example " +
+                    "please say Read the Declaration of Independence and I will recite it. ";
 
                 callback(sessionAttributes,
                      buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
@@ -256,7 +260,12 @@ function listOrigColonies(intent, session, callback) {
             " - " + originalColonies[i].name + "\n";
     }
     
-    repromptText = "If you would like to hear more information, please say something.";
+    speechOutput = speechOutput + ". If you would like to know who signed the Declaration of " +
+        "Independence from one of these particular colonies, please say, Who signed the " +
+        "Declaration of Independence from Virginia, and I will list them.";
+    
+    repromptText = "If you would like to hear about some of the key individuals that led the " +
+        "original colonies, please say Read me a biography, and I will do so. ";
     
     callback(sessionAttributes,
          buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
@@ -279,21 +288,61 @@ function listDeclOfIndepSigners(intent, session, callback) {
 
     for (i = 0; i < originalColonies.length; i++) {
         if (requestState == originalColonies[i].name) {
-            speechOutput = "The signers from the state of " + requestState;
-            cardOutput = "US Declaration of Indepdence Signers from " + requestState;
+            speechOutput = "The signers from the state of " + requestState + " are ";
+            cardOutput = "US Declaration of Indepdence Signers from " + requestState + "\n";
             validState = true;
         }
     }
     
     if (validState == false) {
-        speechOutput = "I'm sorry, that's not one of the original thirteen colonies";
+        speechOutput = "I'm sorry, that's not one of the original thirteen colonies. I can list " +
+            "them if needed, just say, List the original Colonies."
         cardOutput = "Invalid State - please try again";
+        
+        repromptText = "If you would like to hear what the original colonies were, please say " +
+            "List the original colonies.";
+    
+        callback(sessionAttributes,
+             buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+    } else {
+        var s3 = new aws.S3();
+
+        var getParams = {Bucket : dataBucket,
+            Key : 'famous-documents/declOfIndep.json'};
+
+        s3.getObject(getParams, function(err, data) {
+            if(err)
+                console.log('Error getting declaration of independence : ' + err);
+            else {
+                console.log("Retrieved data object");
+
+                var returnData = eval('(' + data.Body + ')');
+                
+                var declSignatures = returnData.signatures;
+
+                //console.log(JSON.stringify(declSignatures));
+
+                for (j = 0; j < declSignatures.length; j++) {
+                    //console.log(declSignatures[j].state);
+                    if (requestState == declSignatures[j].state) {
+                        //console.log("match: " + declSignatures[j].fullName);
+                        speechOutput = speechOutput + declSignatures[j].fullName + ", ";
+                        cardOutput = cardOutput + declSignatures[j].fullName + "\n";
+                    }
+                };
+
+                speechOutput = speechOutput + ". To hear more information about one of these individuals, " +
+                    "please say, Who is " + declSignatures[1].fullName + " and I will read a short biography.";
+                
+                repromptText = "Would you like me to read you a biography of one of the colonial founders? " +
+                    "If so, just say, List available biographies, and I will let you know who I have information " +
+                    "about.";
+    
+                callback(sessionAttributes,
+                    buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+            }
+        });
     }
-    
-    repromptText = "If you would like to hear more information, please say something.";
-    
-    callback(sessionAttributes,
-         buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
 }
 
 // This retrieves the bill of rights data and renders it for a response
@@ -346,8 +395,11 @@ function readDeclOfIndep(intent, session, callback) {
                 speechOutput = speechOutput + declOfIndep.conclusion;
                 cardOutput = cardOutput + declOfIndep.conclusion + "\n";                
 
+                speechOutput = speechOutput + ". If you would like to know who signed the declaration, " +
+                    "please say, List signers of the Declaration of Independence.";
+
                 var repromptText = "If you would like to know who signed the declaration " +
-                    "please say List signers of the Declaration of Independence.";
+                    "please say, List signers of the Declaration of Independence.";
 
                 callback(sessionAttributes,
                      buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
@@ -396,13 +448,18 @@ function getBioList(intent, session, callback) {
                     if (bioArray[i].person.path !== previousPath) { 
                         console.log(bioArray[i].person.path + previousPath);
                         speechOutput = speechOutput + bioArray[i].person.name + ", ";
-                        cardOutput = cardOutput + bioArray[i].person.name+ '\n';
+                        cardOutput = cardOutput + bioArray[i].person.name + '\n';
                     }
                     
                     previousPath = bioArray[i].person.path;
                 }
+
+                speechOutput = speechOutput + ". If you would like me to read the biography of one of these " +
+                    "individuals, please say, Who is " + bioArray[1].person.name + ".";
                     
-                var repromptText = "reprompt text";
+                var repromptText = "Would you rather find out information about famous documents? I can " +
+                    "recite the Declaration of Independence as well as the Bill of Rights. Just say, " +
+                    "Read the Declaration of Independence, and I will do so.";
 
                 callback(sessionAttributes,
                      buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
@@ -467,7 +524,8 @@ function getBiography(intent, session, callback) {
                                     "Date of Birth: " + bioData.dateOfBirth + '\n' +
                                     "Date of Death: " + bioData.dateOfDeath + '\n';
     
-                                var repromptText = "reprompt text";
+                                var repromptText = "I have plenty of other biographies to choose from. If you " +
+                                    "would like me to list those available, please say, List biographies.";
 
                                 callback(sessionAttributes,
                                      buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
@@ -526,7 +584,8 @@ function getStory(intent, session, callback) {
                         "Date of Birth: " + bioData.dateOfBirth + '\n' +
                         "Date of Death: " + bioData.dateOfDeath + '\n';
     
-                    var repromptText = "reprompt text";
+                    var repromptText = "I have plenty of other biographies to choose from. If you " +
+                        "would like me to list those available, please say, List biographies.";
 
                     callback(sessionAttributes,
                          buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
