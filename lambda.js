@@ -142,12 +142,14 @@ function getWelcomeResponse(callback) {
     var shouldEndSession = false;
     var cardTitle = "Welcome to Colonial History";
 
-    var speechOutput = "Welcome to the Colonial History Skill.";
+    var speechOutput = "Welcome to the Colonial History Skill. Looking to learn more about the early " +
+        "beginnings of the United States? Start by saying something like, Read a Biography, and a brief " +
+        "historical background will be shared.";
 
     var cardOutput = "Welcome to Colonial History";
 
     var repromptText = "Please tell me how I can help you by saying phrases like, " +
-        "Read the Declaration of Independence.";
+        "Read the Declaration of Independence, or Who is Alexander Hamilton?";
 
     console.log('speech output : ' + speechOutput);
 
@@ -163,12 +165,13 @@ function getHelpResponse(callback) {
 
     var speechOutput = "The Colonial History Skill provides information about US history during " +
         "the colonial era. It contains biographical information about our founding fathers " +
-        "as well as information about famous events and documents";
+        "as well as information about famous events and documents. Please say, Read a Biography, " +
+        "or Read the Bill of Rights.";
 
     // if the user still does not respond, they will be prompted with this additional information
 
     var repromptText = "Please tell me how I can help you by saying phrases like, " +
-        "biography of George Washington.";
+        "Read the Biography of George Washington.";
         
     var shouldEndSession = false;
 
@@ -293,6 +296,13 @@ function listDeclOfIndepSigners(intent, session, callback) {
             validState = true;
         }
     }
+
+    if (requestState == null) {
+        // this indicates all of the states will be read
+        speechOutput = "The full list of all the signers of the declaration are ";
+        cardOutput = "US Declaration of Independence Signers\n";
+        validState = true;
+    }
     
     if (validState == false) {
         speechOutput = "I'm sorry, that's not one of the original thirteen colonies. I can list " +
@@ -319,20 +329,18 @@ function listDeclOfIndepSigners(intent, session, callback) {
                 var returnData = eval('(' + data.Body + ')');
                 
                 var declSignatures = returnData.signatures;
-
-                //console.log(JSON.stringify(declSignatures));
+                var signExample = "";
 
                 for (j = 0; j < declSignatures.length; j++) {
-                    //console.log(declSignatures[j].state);
-                    if (requestState == declSignatures[j].state) {
-                        //console.log("match: " + declSignatures[j].fullName);
+                    if (requestState == declSignatures[j].state || requestState == null) {
                         speechOutput = speechOutput + declSignatures[j].fullName + ", ";
                         cardOutput = cardOutput + declSignatures[j].fullName + "\n";
+                        signExample = declSignatures[j].fullName;
                     }
                 };
 
                 speechOutput = speechOutput + ". To hear more information about one of these individuals, " +
-                    "please say, Who is " + declSignatures[1].fullName + " and I will read a short biography.";
+                    "please say something like, Who is " + signExample + " and I will read a short biography.";
                 
                 repromptText = "Would you like me to read you a biography of one of the colonial founders? " +
                     "If so, just say, List available biographies, and I will let you know who I have information " +
@@ -455,7 +463,7 @@ function getBioList(intent, session, callback) {
                 }
 
                 speechOutput = speechOutput + ". If you would like me to read the biography of one of these " +
-                    "individuals, please say, Who is " + bioArray[1].person.name + ".";
+                    "individuals, please say something like, Who is " + bioArray[1].person.name + ".";
                     
                 var repromptText = "Would you rather find out information about famous documents? I can " +
                     "recite the Declaration of Independence as well as the Bill of Rights. Just say, " +
@@ -479,8 +487,6 @@ function getBiography(intent, session, callback) {
     var speechOutput = "";
     var cardOutput = "";
 
-    // first check to make sure that information is available about the individual provided
-
     var s3 = new aws.S3();
 
     var getParams = {Bucket : dataBucket,
@@ -492,8 +498,11 @@ function getBiography(intent, session, callback) {
             else {
                 console.log("Retrieved data object");
 
+                // first check to make sure that information is available about the individual provided
+
                 var returnData = eval('(' + data.Body + ')');
                 var bioArray = returnData.data;
+                var foundMatch = false;
 
                 console.log(JSON.stringify(bioArray));
                 
@@ -519,20 +528,33 @@ function getBiography(intent, session, callback) {
 
                                 speechOutput = "Here is a brief biography of " + bioData.firstName + " " + bioData.lastName + ". ";
                                 speechOutput = speechOutput + bioData.bio;
+                                speechOutput = speechOutput + " If you would like me to read another biography, please ask again " +
+                                    "providing the name, or say, List biographies.";
 
                                 cardOutput = cardOutput + bioData.firstName + " " + bioData.lastName + '\n' +
                                     "Date of Birth: " + bioData.dateOfBirth + '\n' +
                                     "Date of Death: " + bioData.dateOfDeath + '\n';
     
                                 var repromptText = "I have plenty of other biographies to choose from. If you " +
-                                    "would like me to list those available, please say, List biographies.";
+                                    "would like me to list those available, please say, List available biographies.";
 
                                 callback(sessionAttributes,
                                      buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
                             }
                         });
                     }
-                }
+                };
+
+                // process logic for when no match exists
+                
+                speechOutput = "I'm sorry, we don't have information about " + intent.slots.Name.value + ". " +
+                    "If you would like a full list of what biographies we have, please say List available biographies.";
+                cardOutput = "No biography available for " + intent.slots.Name.value;
+                repromptText = "If you would like for me to read any biography, please say, Read me a biography.";
+
+                callback(sessionAttributes,
+                    buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+                
             }
         });
 }
@@ -578,7 +600,8 @@ function getStory(intent, session, callback) {
                                 
                     speechOutput = "Here is a brief biography of " + bioData.firstName + " " + bioData.lastName + ". ";
                     speechOutput = speechOutput + bioData.bio;
-                    speechOutput = speechOutput + " For another biography, please say xxx";
+                    speechOutput = speechOutput + " For another biography, please say, " +
+                        "Read a biography, and I will read another.";
 
                     cardOutput = cardOutput + bioData.firstName + " " + bioData.lastName + '\n' +
                         "Date of Birth: " + bioData.dateOfBirth + '\n' +
