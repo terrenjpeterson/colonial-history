@@ -181,9 +181,13 @@ function getHelpResponse(callback) {
 
 // this is the function that gets called to format the response when the user is done
 function handleSessionEndRequest(callback) {
+
+    console.log("End session - request feedback");
+
     var cardTitle = "Thanks for using Colonial History Skill";
     
-    var speechOutput = "Thank you for checking in with the Colonial History skill. Have a nice day!";
+    var speechOutput = "Thank you for checking in with the Colonial History skill. Please take time " +
+        "to provide us feedback in the Alexa app, including what else you would like to see added to this skill.";
 
     // Setting this to true ends the session and exits the skill.
 
@@ -380,11 +384,11 @@ function readDeclOfIndep(intent, session, callback) {
 
                 var returnData = eval('(' + data.Body + ')');
                 
-                console.log("Processing Data");
+                //console.log("Processing Data");
                 
                 var declOfIndep = returnData;
 
-                console.log(JSON.stringify(declOfIndep));
+                //console.log(JSON.stringify(declOfIndep));
 
                 speechOutput = "The United States Declaration of Independence from " +
                     "Great Britain has several sections. This covers the introduction, " +
@@ -443,18 +447,18 @@ function getBioList(intent, session, callback) {
                 var returnData = eval('(' + data.Body + ')');
                 var bioArray = returnData.data;
 
-                console.log(JSON.stringify(bioArray));
+                //console.log(JSON.stringify(bioArray));
 
                 speechOutput = "Here are the biographies to choose from - ";
 
                 var previousPath = "";
                 
                 for (i = 0; i < bioArray.length; i++) {
-                    console.log(bioArray[i].person.name);
+                    //console.log(bioArray[i].person.name);
                     
                     // make sure and skip duplicates
                     if (bioArray[i].person.path !== previousPath) { 
-                        console.log(bioArray[i].person.path + previousPath);
+                        //console.log(bioArray[i].person.path + previousPath);
                         speechOutput = speechOutput + bioArray[i].person.name + ", ";
                         cardOutput = cardOutput + bioArray[i].person.name + '\n';
                     }
@@ -511,6 +515,8 @@ function getBiography(intent, session, callback) {
 
                         console.log("matched - use object : " + bioArray[i].person.path);
 
+                        foundMatch = true;
+
                         var s3 = new aws.S3();
                         
                         var getBioParams = {Bucket : dataBucket,
@@ -524,7 +530,7 @@ function getBiography(intent, session, callback) {
 
                                 var bioData = eval('(' + data.Body + ')');
                                 
-                                console.log(JSON.stringify(bioData));
+                                //console.log(JSON.stringify(bioData));
 
                                 speechOutput = "Here is a brief biography of " + bioData.firstName + " " + bioData.lastName + ". ";
                                 speechOutput = speechOutput + bioData.bio;
@@ -538,8 +544,31 @@ function getBiography(intent, session, callback) {
                                 var repromptText = "I have plenty of other biographies to choose from. If you " +
                                     "would like me to list those available, please say, List available biographies.";
 
-                                callback(sessionAttributes,
-                                     buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+                                // log to analytics for further processing
+                                
+                                var db = new aws.DynamoDB();
+
+                                var d = new Date().toString();
+
+                                var params = {
+                                    TableName: 'colonialBiographyTbl',
+                                    Item: { // a map of attribute name to AttributeValue
+                                        readingTS: { S: d },
+                                        histFigure: {  S: intent.slots.Name.value },
+                                        userId: { S: session.user.userId },
+                                        sessionId: { S: session.sessionId },
+                                        request: { S: "Specific User Request" }
+                                    }
+                                };
+    
+                                db.putItem(params, function(err, data) {
+                                    if (err) console.log(err); // an error occurred
+                                    else console.log("success" + data); // successful response
+
+                                    callback(sessionAttributes,
+                                         buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+
+                                });
                             }
                         });
                     }
@@ -547,13 +576,18 @@ function getBiography(intent, session, callback) {
 
                 // process logic for when no match exists
                 
-                speechOutput = "I'm sorry, we don't have information about " + intent.slots.Name.value + ". " +
-                    "If you would like a full list of what biographies we have, please say List available biographies.";
-                cardOutput = "No biography available for " + intent.slots.Name.value;
-                repromptText = "If you would like for me to read any biography, please say, Read me a biography.";
+                if(foundMatch === false) {
+                
+                    console.log("Process cant match logic");
+                
+                    speechOutput = "I'm sorry, we don't have information about " + intent.slots.Name.value + ". " +
+                        "If you would like a full list of what biographies we have, please say List available biographies.";
+                    cardOutput = "No biography available for " + intent.slots.Name.value;
+                    repromptText = "If you would like for me to read any biography, please say, Read me a biography.";
 
-                callback(sessionAttributes,
-                    buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+                    callback(sessionAttributes,
+                        buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+                }
                 
             }
         });
@@ -568,6 +602,8 @@ function getStory(intent, session, callback) {
     
     var speechOutput = "";
     var cardOutput = "";
+
+    console.log("Getting Biographic Story");
 
     // first get the index of all of the biographies
     
@@ -597,7 +633,7 @@ function getStory(intent, session, callback) {
                     console.log('Error getting bio index data : ' + err);
                 else {
                     var bioData = eval('(' + data.Body + ')');
-                                
+
                     speechOutput = "Here is a brief biography of " + bioData.firstName + " " + bioData.lastName + ". ";
                     speechOutput = speechOutput + bioData.bio;
                     speechOutput = speechOutput + " For another biography, please say, " +
@@ -610,10 +646,28 @@ function getStory(intent, session, callback) {
                     var repromptText = "I have plenty of other biographies to choose from. If you " +
                         "would like me to list those available, please say, List biographies.";
 
-                    callback(sessionAttributes,
-                         buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+                    // log to analytics for further processing
+                    var db = new aws.DynamoDB();
+                    var d = new Date().toString();
+                    var params = {
+                        TableName: 'colonialBiographyTbl',
+                        Item: { // a map of attribute name to AttributeValue
+                            readingTS: { S: d },
+                            histFigure: {  S: bioData.firstName + " " + bioData.lastName },
+                            userId: { S: session.user.userId },
+                            sessionId: { S: session.sessionId },
+                            request: { S: "Get Random Story" }
+                        }
+                    };
+
+                    db.putItem(params, function(err, data) {
+                        if (err) console.log(err); // an error occurred
+                        else console.log("success" + data); // successful response
+
+                        callback(sessionAttributes,
+                             buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+                    });
                 }
-                        
             });
         }
     });
