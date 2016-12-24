@@ -81,7 +81,7 @@ function onLaunch(launchRequest, session, callback) {
         ", sessionId=" + session.sessionId);
 
     // Dispatch to your skill's launch.
-    getWelcomeResponse(callback);
+    getWelcomeResponse(session, callback);
 }
 
 /**
@@ -112,11 +112,11 @@ function onIntent(intentRequest, session, callback) {
     } else if ("ListOriginalColonies" === intentName) {
         listOrigColonies(intent, session, callback);
     } else if ("AMAZON.StartOverIntent" === intentName) {
-        getWelcomeResponse(callback);
+        getWelcomeResponse(session, callback);
     } else if ("AMAZON.HelpIntent" === intentName) {
         getHelpResponse(callback);
     } else if ("AMAZON.RepeatIntent" === intentName) {
-        getWelcomeResponse(callback);
+        getWelcomeResponse(session, callback);
     } else if ("AMAZON.StopIntent" === intentName || "AMAZON.CancelIntent" === intentName) {
         handleSessionEndRequest(callback);
     } else {
@@ -137,7 +137,7 @@ function onSessionEnded(sessionEndedRequest, session) {
 
 // this is the function that gets called to format the response to the user when they first boot the app
 
-function getWelcomeResponse(callback) {
+function getWelcomeResponse(session, callback) {
     var sessionAttributes = {};
     var shouldEndSession = false;
     var cardTitle = "Welcome to Colonial History";
@@ -153,8 +153,27 @@ function getWelcomeResponse(callback) {
 
     console.log('speech output : ' + speechOutput);
 
-    callback(sessionAttributes,
-        buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+    // log to analytics for further processing
+    var db = new aws.DynamoDB();
+    var d = new Date().toString();
+
+    var params = {
+        TableName: 'colonialBiographyTbl',
+        Item: { // a map of attribute name to AttributeValue
+            readingTS: { S: d },
+            userId: { S: session.user.userId },
+            sessionId: { S: session.sessionId },
+            request: { S: "Welcome Message" }
+        }
+    };
+    
+    db.putItem(params, function(err, data) {
+        if (err) console.log(err); // an error occurred
+        else console.log("success" + data); // successful response
+
+        callback(sessionAttributes,
+            buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+    });
 }
 
 // this is the function that gets called to format the response to the user when they ask for help
@@ -547,7 +566,6 @@ function getBiography(intent, session, callback) {
                                 // log to analytics for further processing
                                 
                                 var db = new aws.DynamoDB();
-
                                 var d = new Date().toString();
 
                                 var params = {
