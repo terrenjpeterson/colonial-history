@@ -118,7 +118,7 @@ function onIntent(intentRequest, session, callback) {
     } else if ("AMAZON.RepeatIntent" === intentName) {
         getWelcomeResponse(session, callback);
     } else if ("AMAZON.StopIntent" === intentName || "AMAZON.CancelIntent" === intentName) {
-        handleSessionEndRequest(callback);
+        handleSessionEndRequest(session, callback);
     } else {
         throw "Invalid intent";
     }
@@ -199,7 +199,7 @@ function getHelpResponse(callback) {
 }
 
 // this is the function that gets called to format the response when the user is done
-function handleSessionEndRequest(callback) {
+function handleSessionEndRequest(session, callback) {
 
     console.log("End session - request feedback");
 
@@ -212,7 +212,27 @@ function handleSessionEndRequest(callback) {
 
     var shouldEndSession = true;
 
-    callback({}, buildSpeechletResponse(cardTitle, speechOutput, speechOutput, null, shouldEndSession));
+    // log to analytics for further processing
+    var db = new aws.DynamoDB();
+    var d = new Date().toString();
+
+    var params = {
+        TableName: 'colonialBiographyTbl',
+        Item: { // a map of attribute name to AttributeValue
+            readingTS: { S: d },
+            userId: { S: session.user.userId },
+            sessionId: { S: session.sessionId },
+            request: { S: "End Message" }
+        }
+    };
+    
+    db.putItem(params, function(err, data) {
+        if (err) console.log(err); // an error occurred
+        else console.log("success" + data); // successful response
+
+        callback({}, buildSpeechletResponse(cardTitle, speechOutput, speechOutput, null, shouldEndSession));
+
+    });
 }
 
 // This retrieves the bill of rights data and renders it for a response
@@ -261,8 +281,27 @@ function readBillOfRights(intent, session, callback) {
                 var repromptText = "I have other historical documents that I can read. For example " +
                     "please say Read the Declaration of Independence and I will recite it. ";
 
-                callback(sessionAttributes,
-                     buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+                // log to analytics for further processing
+                var db = new aws.DynamoDB();
+                var d = new Date().toString();
+
+                var params = {
+                    TableName: 'colonialBiographyTbl',
+                    Item: { // a map of attribute name to AttributeValue
+                        readingTS: { S: d },
+                        userId: { S: session.user.userId },
+                        sessionId: { S: session.sessionId },
+                        request: { S: "Read Bill of Rights" }
+                    }
+                };
+        
+                db.putItem(params, function(err, data) {
+                    if (err) console.log(err); // an error occurred
+                    else console.log("success" + data); // successful response
+
+                    callback(sessionAttributes,
+                         buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+                });
             }
         });
 }
@@ -530,7 +569,7 @@ function getBiography(intent, session, callback) {
                 console.log(JSON.stringify(bioArray));
                 
                 for (i = 0; i < bioArray.length; i++) {
-                    if (bioArray[i].person.name === intent.slots.Name.value) {
+                    if (bioArray[i].person.name.toLowerCase() === intent.slots.Name.value.toLowerCase()) {
 
                         console.log("matched - use object : " + bioArray[i].person.path);
 
