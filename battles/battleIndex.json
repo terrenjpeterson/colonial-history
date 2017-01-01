@@ -1,0 +1,22 @@
+{
+	"data": [
+		{
+			"battle": {
+				"name":"Battle of Saratoga",
+				"path":"saratoga.json"
+			},
+		},
+                {
+                        "battle": {
+                                "name":"Battle of Lexington",
+                                "path":"lexington.json"
+                        },
+                },
+                {
+                        "battle": {
+                                "name":"Battle of Yorktown",
+                                "path":"yorktown.json"
+                        },
+                }
+	]
+}
