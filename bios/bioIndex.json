@@ -203,6 +203,30 @@
                                 "name":"Thomas Paine",
                                 "path":"thomasPaine.json"
                         }
+                },
+                {
+                        "person": {
+                                "name":"Betsy Ross",
+                                "path":"betsyRoss.json"
+                        }
+                },
+                {
+                        "person": {
+                                "name":"Sarah Bache",
+                                "path":"sarahBache.json"
+                        }
+                },
+                {
+                        "person": {
+                                "name":"Martha Washington",
+                                "path":"marthaWashington.json"
+                        }
+                },
+                {
+                        "person": {
+                                "name":"Margaret Corbin",
+                                "path":"margaretCorbin.json"
+                        }
                 }
 	]
 }
