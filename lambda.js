@@ -101,6 +101,8 @@ function onIntent(intentRequest, session, callback) {
         getBiography(intent, session, callback);
     } else if ("Story" === intentName) {
         getStory(intent, session, callback);
+    } else if ("ReadBattle" === intentName) {
+        getColonialBattle(intent, session, callback);
     } else if ("BioList" === intentName) {
         getBioList(intent, session, callback);
     } else if ("ReadDeclOfInd" === intentName) {
@@ -624,7 +626,6 @@ function getBiography(intent, session, callback) {
 
                                     callback(sessionAttributes,
                                          buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
-
                                 });
                             }
                         });
@@ -645,7 +646,6 @@ function getBiography(intent, session, callback) {
                     callback(sessionAttributes,
                         buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
                 }
-                
             }
         });
 }
@@ -660,7 +660,7 @@ function getStory(intent, session, callback) {
     var speechOutput = "";
     var cardOutput = "";
 
-    console.log("Getting Biographic Story");
+    console.log("Getting a Biographic Story");
 
     // first get the index of all of the biographies
     
@@ -677,7 +677,8 @@ function getStory(intent, session, callback) {
             var bioArray = returnData.data;
 
             // now pick a random number from within the array to get the pointer
-            var i = Math.floor((Math.random() * bioArray.length) + 1);
+            var i = Math.floor((Math.random() * bioArray.length));
+            console.log("random number: " + i.toString());
             console.log("matched - use object : " + bioArray[i].person.path);
 
             var s3 = new aws.S3();
@@ -714,6 +715,88 @@ function getStory(intent, session, callback) {
                             userId: { S: session.user.userId },
                             sessionId: { S: session.sessionId },
                             request: { S: "Get Random Story" }
+                        }
+                    };
+
+                    db.putItem(params, function(err, data) {
+                        if (err) console.log(err); // an error occurred
+                        else console.log("success" + data); // successful response
+
+                        callback(sessionAttributes,
+                             buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+                    });
+                }
+            });
+        }
+    });
+}
+
+// this function goes through a the index of battles, and reads one back at random.
+function getColonialBattle(intent, session, callback) {
+    var cardTitle = "Colonial History - Battle Story";
+    var sessionAttributes = {};
+    var shouldEndSession = false;
+    
+    var speechOutput = "";
+    var cardOutput = "";
+
+    console.log("Getting a Colonial Battle Story");
+
+    // first get the index of all of the battles
+    var s3 = new aws.S3();
+
+    var getParams = {Bucket : dataBucket,
+                     Key : 'battles/battleIndex.json'};
+
+    s3.getObject(getParams, function(err, data) {
+        if(err)
+            console.log('Error getting battle index data : ' + err);
+        else {
+            var returnData = eval('(' + data.Body + ')');
+            var battleArray = returnData.data;
+
+            // now pick a random number from within the array to get the pointer
+            var i = Math.floor((Math.random() * battleArray.length));
+            console.log("random number: " + i.toString());
+            console.log("matched - use object : " + battleArray[i].battle.path);
+
+            var s3 = new aws.S3();
+                    
+            var getBattleParams = {Bucket : dataBucket,
+                                Key : 'battles/' + battleArray[i].battle.path}
+
+            s3.getObject(getBattleParams, function(err, data) {
+                if(err) {
+                    console.log('Error getting battle index data : ' + err);
+                    console.log(JSON.stringify(getBattleParams));
+                } else {
+                    var battleData = eval('(' + data.Body + ')');
+
+                    speechOutput = speechOutput + "Here is a brief overview of The " + battleData.name + ". ";
+                    speechOutput = speechOutput + "It was fought on " + battleData.date + " in " + battleData.location + ". ";
+                    speechOutput = speechOutput + battleData.longDesc;
+                    speechOutput = speechOutput + " For another battle, please say, " +
+                        "Read about a battle, and I will read another.";
+
+                    cardOutput = cardOutput + battleData.name + '\n';
+                    cardOutput = cardOutput + battleData.date + '\n';
+                    cardOutput = cardOutput + battleData.location + '\n';
+                    cardOutput = cardOutput + battleData.longDesc + '\n';
+                    
+                    var repromptText = "I have plenty of other battles to read from. If you " +
+                        "would like me to read one, please say Read about a battle.";
+
+                    // log to analytics for further processing
+                    var db = new aws.DynamoDB();
+                    var d = new Date().toString();
+                    var params = {
+                        TableName: 'colonialBiographyTbl',
+                        Item: { // a map of attribute name to AttributeValue
+                            readingTS: { S: d },
+                            battleName: {  S: battleData.name },
+                            userId: { S: session.user.userId },
+                            sessionId: { S: session.sessionId },
+                            request: { S: "Get Battle Story" }
                         }
                     };
 
