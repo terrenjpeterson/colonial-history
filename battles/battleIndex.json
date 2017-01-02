@@ -17,6 +17,31 @@
                                 "name":"Battle of Yorktown",
                                 "path":"yorktown.json"
                         },
+                },
+                {
+                        "battle": {
+                                "name":"Siege of Charleston",
+                                "path":"charleston.json"
+                        },
+                },
+                {
+                        "battle": {
+                                "name":"Battle of the Chesapeake",
+                                "path":"chesapeake.json"
+                        },
+                },
+                {
+                        "battle": {
+                                "name":"Battle of Kings Mountain",
+                                "path":"kingsMountain.json"
+                        },
+                },
+                {
+                        "battle": {
+                                "name":"Raid of Richmond",
+                                "path":"richmond.json"
+                        }
                 }
+
 	]
 }
