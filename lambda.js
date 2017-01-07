@@ -98,7 +98,11 @@ function onIntent(intentRequest, session, callback) {
     // Dispatch to the individual skill handlers
 
     if ("Biography" === intentName) {
-        getBiography(intent, session, callback);
+        if (intent.slots.Name.value) {
+            getBiography(intent, session, callback);
+        } else {
+            returnNoName(intent, session, callback);
+        }
     } else if ("Story" === intentName) {
         getStory(intent, session, callback);
     } else if ("ReadBattle" === intentName) {
@@ -235,6 +239,27 @@ function handleSessionEndRequest(session, callback) {
         callback({}, buildSpeechletResponse(cardTitle, speechOutput, speechOutput, null, shouldEndSession));
 
     });
+}
+
+// this is the function that gets invoked when a biography is requested, but no specific name
+
+function returnNoName(intent, session, callback) {
+    var sessionAttributes = {};
+    var cardTitle = "Read a Biography";
+
+    var speechOutput = "I'm sorry, can you please provide the name for someone that you would like " +
+        "me to read a biography for? If you'd like me to just pick one, please say " +
+        "Read me a Biography.";
+
+    // if the user still does not respond, they will be prompted with this additional information
+
+    var repromptText = "Please tell me how I can help you by saying phrases like, " +
+        "Who was George Washington.";
+        
+    var shouldEndSession = false;
+
+    callback(sessionAttributes,
+        buildSpeechletResponse(cardTitle, speechOutput, speechOutput, repromptText, shouldEndSession));
 }
 
 // This retrieves the bill of rights data and renders it for a response
@@ -770,6 +795,7 @@ function getColonialBattle(intent, session, callback) {
                     console.log('Error getting battle index data : ' + err);
                     console.log(JSON.stringify(getBattleParams));
                 } else {
+                    console.log('retrieved battle object');
                     var battleData = eval('(' + data.Body + ')');
 
                     speechOutput = speechOutput + "Here is a brief overview of The " + battleData.name + ". ";
