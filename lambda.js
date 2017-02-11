@@ -6,6 +6,11 @@ var aws = require('aws-sdk');
 
 const https = require('https');
 
+// this is used by the VoiceLabs analytics
+var APP_ID = 'amzn1.echo-sdk-ams.app.011e0655-2f0a-4696-b9ee-6c45549bc4cf';
+var VoiceInsights =require('voice-insights-sdk'),
+  VI_APP_TOKEN = '';
+
 // location of the bucket used to manage data
 var dataBucket = 'colonial-history';
 
@@ -97,6 +102,10 @@ function onIntent(intentRequest, session, callback) {
 
     // Dispatch to the individual skill handlers
 
+    // initialize voice analytics 
+    console.log("initialize session");
+    VoiceInsights.initialize(session, VI_APP_TOKEN);
+
     if ("Biography" === intentName) {
         if (intent.slots.Name.value) {
             getBiography(intent, session, callback);
@@ -147,6 +156,17 @@ function getWelcomeResponse(session, callback) {
     var sessionAttributes = {};
     var shouldEndSession = false;
     var cardTitle = "Welcome to Colonial History";
+    var cardObject = "benFranklinFlag";
+
+    var yankeeDoodle = 'https://s3.amazonaws.com/colonial-history/sounds/yankeeDoodle.mp3';
+
+    var audioOutput = "<speak>";
+        audioOutput = audioOutput +  "Welcome to the Colonial History Skill.";
+        audioOutput = audioOutput + "<audio src=\"" + yankeeDoodle + "\" />";
+        audioOutput = audioOutput + "Looking to learn more about the early " +
+            "beginnings of the United States? Start by saying something like, Read a Biography, and a brief " +
+            "historical background will be shared.";
+        audioOutput = audioOutput + "</speak>";
 
     var speechOutput = "Welcome to the Colonial History Skill. Looking to learn more about the early " +
         "beginnings of the United States? Start by saying something like, Read a Biography, and a brief " +
@@ -177,8 +197,12 @@ function getWelcomeResponse(session, callback) {
         if (err) console.log(err); // an error occurred
         else console.log("success" + data); // successful response
 
-        callback(sessionAttributes,
-            buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+        VoiceInsights.track('Welcome', null, speechOutput, (err, res) => {
+    	    console.log('voice insights logged' + JSON.stringify(res));   
+
+            callback(sessionAttributes,
+                buildAudioCardResponse(cardTitle, audioOutput, cardOutput, cardObject,repromptText, shouldEndSession));
+        });
     });
 }
 
@@ -236,8 +260,11 @@ function handleSessionEndRequest(session, callback) {
         if (err) console.log(err); // an error occurred
         else console.log("success" + data); // successful response
 
-        callback({}, buildSpeechletResponse(cardTitle, speechOutput, speechOutput, null, shouldEndSession));
+        VoiceInsights.track('End', null, speechOutput, (err, res) => {
+    	    console.log('voice insights logged' + JSON.stringify(res));   
 
+            callback({}, buildSpeechletResponse(cardTitle, speechOutput, speechOutput, null, shouldEndSession));
+        });
     });
 }
 
@@ -747,8 +774,12 @@ function getStory(intent, session, callback) {
                         if (err) console.log(err); // an error occurred
                         else console.log("success" + data); // successful response
 
-                        callback(sessionAttributes,
-                             buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+                        VoiceInsights.track('RandomBiography', bioData.LastName, speechOutput, (err, res) => {
+    	                    console.log('voice insights logged' + JSON.stringify(res));   
+
+                            callback(sessionAttributes,
+                                buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+                        });
                     });
                 }
             });
@@ -830,8 +861,12 @@ function getColonialBattle(intent, session, callback) {
                         if (err) console.log(err); // an error occurred
                         else console.log("success" + data); // successful response
 
-                        callback(sessionAttributes,
-                             buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+                        VoiceInsights.track('RandomBattle', battleData.name, speechOutput, (err, res) => {
+                    	    console.log('voice insights logged' + JSON.stringify(res));   
+
+                            callback(sessionAttributes,
+                                 buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, shouldEndSession));
+                        });
                     });
                 }
             });
@@ -851,6 +886,33 @@ function buildSpeechletResponse(title, output, cardInfo, repromptText, shouldEnd
             type: "Simple",
             title: title,
             content: cardInfo
+        },
+        reprompt: {
+            outputSpeech: {
+                type: "PlainText",
+                text: repromptText
+            }
+        },
+        shouldEndSession: shouldEndSession
+    };
+}
+
+function buildAudioCardResponse(title, output, cardInfo, objectName, repromptText, shouldEndSession) {
+    var smallImagePath = "https://s3.amazonaws.com/colonial-history/cards/" + objectName + "-small.PNG";
+    var largeImagePath = "https://s3.amazonaws.com/colonial-history/cards/" + objectName + "-large.PNG";
+    return {
+        outputSpeech: {
+            type: "SSML",
+            ssml: output
+        },
+        card: {
+            type: "Standard",
+            title: title,
+            text: cardInfo,
+            image: {
+                smallImageUrl: smallImagePath,
+                largeImageUrl: largeImagePath
+            }
         },
         reprompt: {
             outputSpeech: {
