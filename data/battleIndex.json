@@ -1,0 +1,59 @@
+{
+        "data": [
+                {
+                        "battle": {
+                                "name":"Battle of Saratoga",
+                                "path":"saratoga.json"
+                        }
+                },
+                {
+                        "battle": {
+                                "name":"Battle of Lexington",
+                                "path":"lexington.json"
+                        }
+                },
+                {
+                        "battle": {
+                                "name":"Battle of Yorktown",
+                                "path":"yorktown.json"
+                        }
+                },
+                {
+                        "battle": {
+                                "name":"Siege of Charleston",
+                                "path":"charleston.json"
+                        }
+                },
+                 {
+                        "battle": {
+                                "name":"Battle of Sullivans Island",
+                                "path":"sullivanIsland.json"
+                        }
+                },
+                {
+                        "battle": {
+                                "name":"Battle of Trenton",
+                                "path":"trenton.json"
+                        }
+                },
+               {
+                        "battle": {
+                                "name":"Battle of the Chesapeake",
+                                "path":"chesapeake.json"
+                        }
+                },
+                {
+                        "battle": {
+                                "name":"Battle of Kings Mountain",
+                                "path":"kingsMountain.json"
+                        }
+                },
+                {
+                        "battle": {
+                                "name":"Raid of Richmond",
+                                "path":"richmond.json"
+                        }
+                }
+
+        ]
+}
