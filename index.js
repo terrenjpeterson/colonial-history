@@ -4,8 +4,6 @@
 
 var aws = require('aws-sdk');
 
-//const https = require('https');
-
 // this is the list of biographies that the skill has access to
 const biographyArray = require("data/bioIndex.json");
 
@@ -169,6 +167,8 @@ function onIntent(intentRequest, session, callback) {
         getWelcomeResponse(session, callback);
     } else if ("AMAZON.StopIntent" === intentName || "AMAZON.CancelIntent" === intentName) {
         handleSessionEndRequest(session, callback);
+    } else if ("AMAZON.YesIntent" === intentName || "AMAZON.NextIntent" === intentName) {
+	handleSessionEndRequest(session, callback);
     } else {
         throw "Invalid intent";
     }
@@ -384,6 +384,8 @@ function handleSessionEndRequest(session, callback) {
 function returnNoName(intent, session, callback) {
     var sessionAttributes = {};
     var cardTitle = "Read a Biography";
+
+    console.log("No Biography Name Provided to Read");
 
     var speechOutput = "I'm sorry, can you please provide the name for someone that you would like " +
         "me to read a biography for? If you'd like me to just pick one, please say " +
@@ -926,7 +928,7 @@ function getBiography(intent, session, callback) {
 
                 // process logic for when no match exists
                 if(foundMatch === false) {
-                    console.log("Process cant match logic");
+                    console.log("Can't find biography for " +intent.slots.Name.value);
                 
                     speechOutput = "I'm sorry, we don't have information about " + intent.slots.Name.value + ". " +
                         "If you would like a full list of what biographies we have, please say List available biographies.";
@@ -1063,15 +1065,23 @@ function getColonialBattle(intent, session, callback) {
                         buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, false));
                 }
             } else {
-                speechOutput = "Sorry, I don't have information on " + intent.slots.battle.value + ". " +
-                    "For a list of battles available, please say, list battle stories.";
-                cardOutput = "No info available on " + intent.slots.battle.value;
-                callback(sessionAttributes,
-                    buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, false));
+		if (intent.slots.battle.value) {
+                    speechOutput = "Sorry, I don't have information on " + intent.slots.battle.value + ". " +
+                    	"For a list of battles available, please say, list battle stories.";
+                    cardOutput = "No info available on " + intent.slots.battle.value;
+                    callback(sessionAttributes,
+                    	buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, false));
+		} else {
+		    speechOutput = "For a list of battles available, please say, list battle stories.";
+                    cardOutput = "No battle name provided.";
+                    callback(sessionAttributes,
+                        buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, false));
+		}
             }
         } else {
             // read a random battle no slots were provided
             let i = Math.round((Math.random() * battleArray.data.length));
+	    console.log("Choose random battle - number:" + i);
             console.log("matched - use object : " + battleArray.data[i].battle.path);
 
             var s3 = new aws.S3();
@@ -1161,11 +1171,59 @@ function buildSpeechletResponse(title, output, cardInfo, repromptText, shouldEnd
 function buildAudioCardResponse(title, output, cardInfo, objectName, repromptText, shouldEndSession) {
     var smallImagePath = "https://s3.amazonaws.com/colonial-history/cards/" + objectName + "-small.PNG";
     var largeImagePath = "https://s3.amazonaws.com/colonial-history/cards/" + objectName + "-large.PNG";
+
     return {
         outputSpeech: {
             type: "SSML",
             ssml: output
         },
+	directives: [
+	    {
+		type: "Alexa.Presentation.APL.RenderDocument",
+		document: {
+		    type: "APL",
+		    version: "1.0",
+		    theme: "dark",
+		    import: [
+			{
+			    name: "alexa-layouts",
+			    version: "1.0.0"
+		    	}
+		    ],
+		    resources: [],
+		    styles: {},
+		    layouts: {},
+		    mainTemplate: {
+			items: [
+			    {
+				type: "Container",
+				items: [
+				    {
+					type: "AlexaHeader",
+					headerTitle: "Welcome to the Colonial History Skill"
+				    },
+				    {
+					type: "Container",
+					alignItems: "center",
+					items: [
+					    {
+						type: "Image",
+						height: "75vh",
+						width: "90vh",
+						source: smallImagePath,
+						scale: "best-fill",
+						align: "center"
+					    }
+					]
+				    }
+				]
+			    }
+			]
+		    }
+		},
+		datasources: {}
+	    }
+	],
         card: {
             type: "Standard",
             title: title,
